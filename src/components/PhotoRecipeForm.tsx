@@ -2,7 +2,7 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react';
-import { useState, useRef, useEffect, useActionState } from 'react';
+import { useState, useRef, useEffect, useActionState, startTransition } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,8 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
         });
       }
     }
-  }, [actionState, isActionPending, toast, initialState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionState, isActionPending, toast]); // initialState is stable, toast is stable
 
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +118,9 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
     // Explicitly setting it is also fine if we ensure the name attribute is correct.
     // formData.set('allergies', allergiesInput); // Redundant if textarea name="allergies"
 
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   return (
