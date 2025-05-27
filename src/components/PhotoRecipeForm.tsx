@@ -1,8 +1,7 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react';
-import { useState, useRef, useEffect } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useRef, useEffect, useActionState } from 'react'; // Changed import
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +20,7 @@ interface PhotoRecipeFormProps {
 const initialState: RecipeGenerationResult | null = null;
 
 export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormProps) {
-  const [state, formAction] = useFormState(generateRecipesAction, initialState);
+  const [state, formAction] = useActionState(generateRecipesAction, initialState); // Changed to useActionState
   const { toast } = useToast();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
