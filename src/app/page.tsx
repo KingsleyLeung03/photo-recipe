@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
@@ -8,14 +9,18 @@ import type { RecipeGenerationResult } from '@/app/actions';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AlertTriangle, Info, ChefHat, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
+
+// Define initial empty arrays outside the component for stable references
+const EMPTY_RECIPES_ARRAY: AIAssistedRecipe[] = [];
 
 export default function HomePage() {
   const [generatedRecipes, setGeneratedRecipes] = useState<AIAssistedRecipe[]>([]);
   const [identifiedIngredients, setIdentifiedIngredients] = useState<string[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', []);
-  const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', []);
+  const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
+  const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY);
   const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
 
 
@@ -26,7 +31,7 @@ export default function HomePage() {
       if (result) {
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
-          setSessionRecipes(result.recipes); 
+          // setSessionRecipes(result.recipes); // This is now handled by the useEffect below
           setIdentifiedIngredients(result.identifiedIngredients);
           setError(null);
         } else if (result.error) {
@@ -37,7 +42,7 @@ export default function HomePage() {
         }
       }
     }
-  }, [setSessionRecipes]);
+  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); // Added all dependencies
 
   const toggleSaveRecipe = (recipeId: string) => {
     const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || sessionRecipes.find(r => r.id === recipeId);
