@@ -1,7 +1,8 @@
+
 "use client";
 
 import type { ChangeEvent, FormEvent } from 'react';
-import { useState, useRef, useEffect, useActionState } from 'react'; // Changed import
+import { useState, useRef, useEffect, useActionState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,34 +21,42 @@ interface PhotoRecipeFormProps {
 const initialState: RecipeGenerationResult | null = null;
 
 export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormProps) {
-  const [state, formAction] = useActionState(generateRecipesAction, initialState); // Changed to useActionState
+  const [state, formAction] = useActionState(generateRecipesAction, initialState);
   const { toast } = useToast();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [allergiesInput, setAllergiesInput] = useState<string>(''); 
-  const [allergiesTags, setAllergiesTags] = useState<string[]>([]); 
+  const [allergiesInput, setAllergiesInput] = useState<string>('');
+  const [allergiesTags, setAllergiesTags] = useState<string[]>([]);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
 
   const hiddenPhotoDataUriRef = useRef<HTMLInputElement>(null);
 
+  // Effect to handle action completion (state changes from initial)
   useEffect(() => {
-    onRecipeGenerationResult(state, isLoadingForm); // Use isLoadingForm here
-    if (state?.error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: state.error,
-      });
+    if (state !== initialState) { // Action has completed
+      if (isLoadingForm) { // Only reset if we were loading due to this form
+        setIsLoadingForm(false);
+      }
+      if (state?.error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: state.error,
+        });
+      } else if (state?.success && state.recipes) {
+         toast({
+          title: "Recipes Generated!",
+          description: `Found ${state.recipes.length} recipe ideas.`,
+        });
+      }
     }
-    if (state?.success && state.recipes) {
-       toast({
-        title: "Recipes Generated!",
-        description: `Found ${state.recipes.length} recipe ideas.`,
-      });
-    }
-    setIsLoadingForm(false); 
-  }, [state, toast, onRecipeGenerationResult]);
+  }, [state, toast, isLoadingForm, initialState]); // Added isLoadingForm and initialState
+
+  // Effect to notify parent about the current state and loading status
+  useEffect(() => {
+    onRecipeGenerationResult(state, isLoadingForm);
+  }, [state, isLoadingForm, onRecipeGenerationResult]);
 
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -93,13 +102,14 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       return;
     }
     setIsLoadingForm(true);
-    onRecipeGenerationResult(null, true); 
+    // Notify parent immediately that loading has started for this form action
+    // state is still `initialState` or the previous state here.
+    onRecipeGenerationResult(state, true); 
     
     const formData = new FormData(event.currentTarget);
-    // Ensure photoDataUri is set from the ref if available, otherwise it might be stale
     if (hiddenPhotoDataUriRef.current?.value) {
       formData.set('photoDataUri', hiddenPhotoDataUriRef.current.value);
-    } else if (photoPreview) { // Fallback if ref not updated, though less ideal
+    } else if (photoPreview) {
       formData.set('photoDataUri', photoPreview);
     }
     formData.set('allergies', allergiesInput);
@@ -126,7 +136,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Input
               id="photo"
-              name="photoFile" // Name for file input, not directly used by action but good practice
+              name="photoFile"
               type="file"
               accept="image/*"
               onChange={handlePhotoChange}
@@ -147,7 +157,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Textarea
               id="allergies"
-              name="allergies" // This name will be used by FormData
+              name="allergies"
               placeholder="e.g., gluten, nuts, dairy (comma-separated)"
               value={allergiesInput}
               onChange={handleAllergiesInputChange}
@@ -193,7 +203,11 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           </Button>
         </CardFooter>
       </form>
-      {state?.error && !isLoadingForm && ( // Check isLoadingForm here
+      {/* This explicit error display tied to `state.error` is good, 
+          as the toast in useEffect handles the immediate notification aspect.
+          Ensure isLoadingForm is false when displaying this so it doesn't overlap with global loading indicators. 
+      */}
+      {state?.error && !isLoadingForm && (
          <CardFooter>
             <div role="alert" className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-center gap-2 text-sm w-full">
                 <AlertCircle className="h-5 w-5" />

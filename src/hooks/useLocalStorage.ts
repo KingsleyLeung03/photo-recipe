@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -27,14 +28,18 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T
       );
     }
     try {
-      const newValue = value instanceof Function ? value(storedValue) : value;
-      window.localStorage.setItem(key, JSON.stringify(newValue));
-      setStoredValue(newValue);
+      // Use a functional update to ensure setStoredValue has the latest state
+      // and to make `setValue` itself stable (not dependent on `storedValue`)
+      setStoredValue(prevStoredValue => {
+        const newValue = value instanceof Function ? value(prevStoredValue) : value;
+        window.localStorage.setItem(key, JSON.stringify(newValue));
+        return newValue;
+      });
       window.dispatchEvent(new Event("local-storage")); // dispatch event to sync tabs
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error);
     }
-  }, [key, storedValue]);
+  }, [key]); // Removed storedValue, setStoredValue is stable
 
   useEffect(() => {
     setStoredValue(readValue());
