@@ -21,42 +21,39 @@ interface PhotoRecipeFormProps {
 const initialState: RecipeGenerationResult | null = null;
 
 export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormProps) {
-  const [state, formAction] = useActionState(generateRecipesAction, initialState);
+  const [actionState, formAction, isActionPending] = useActionState(generateRecipesAction, initialState);
   const { toast } = useToast();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [allergiesInput, setAllergiesInput] = useState<string>('');
   const [allergiesTags, setAllergiesTags] = useState<string[]>([]);
-  const [isLoadingForm, setIsLoadingForm] = useState(false);
-
+  
   const hiddenPhotoDataUriRef = useRef<HTMLInputElement>(null);
 
-  // Effect to handle action completion (state changes from initial)
+  // Effect to notify parent about the current actionState and pending status
   useEffect(() => {
-    if (state !== initialState) { // Action has completed
-      if (isLoadingForm) { // Only reset if we were loading due to this form
-        setIsLoadingForm(false);
-      }
-      if (state?.error) {
+    onRecipeGenerationResult(actionState, isActionPending);
+  }, [actionState, isActionPending, onRecipeGenerationResult]);
+
+  // Effect to show toasts when an action completes
+  useEffect(() => {
+    // Only show toasts if the action is no longer pending AND the state has changed from initial
+    if (!isActionPending && actionState !== initialState) {
+      if (actionState?.error) {
         toast({
           variant: "destructive",
           title: "Error",
-          description: state.error,
+          description: actionState.error,
         });
-      } else if (state?.success && state.recipes) {
+      } else if (actionState?.success && actionState.recipes) {
          toast({
           title: "Recipes Generated!",
-          description: `Found ${state.recipes.length} recipe ideas.`,
+          description: `Found ${actionState.recipes.length} recipe ideas.`,
         });
       }
     }
-  }, [state, toast, isLoadingForm, initialState]); // Added isLoadingForm and initialState
-
-  // Effect to notify parent about the current state and loading status
-  useEffect(() => {
-    onRecipeGenerationResult(state, isLoadingForm);
-  }, [state, isLoadingForm, onRecipeGenerationResult]);
+  }, [actionState, isActionPending, toast, initialState]);
 
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -65,9 +62,10 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
+        const result = reader.result as string;
+        setPhotoPreview(result);
         if (hiddenPhotoDataUriRef.current) {
-          hiddenPhotoDataUriRef.current.value = reader.result as string;
+          hiddenPhotoDataUriRef.current.value = result;
         }
       };
       reader.readAsDataURL(file);
@@ -101,18 +99,23 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       toast({ variant: "destructive", title: "No Photo", description: "Please upload a photo of your ingredients." });
       return;
     }
-    setIsLoadingForm(true);
-    // Notify parent immediately that loading has started for this form action
-    // state is still `initialState` or the previous state here.
-    onRecipeGenerationResult(state, true); 
     
     const formData = new FormData(event.currentTarget);
+    // Ensure photoDataUri is set from the ref if available, or fallback to preview
+    // This is crucial because the file input itself isn't directly part of what useActionState serializes easily for the server action.
     if (hiddenPhotoDataUriRef.current?.value) {
       formData.set('photoDataUri', hiddenPhotoDataUriRef.current.value);
     } else if (photoPreview) {
+      // This is a fallback, ideally the ref should always have the value
       formData.set('photoDataUri', photoPreview);
+    } else {
+      // Handle case where no photo data URI is available (should be caught by !photoFile check ideally)
+      toast({ variant: "destructive", title: "Photo Error", description: "Could not process photo. Please re-upload." });
+      return;
     }
-    formData.set('allergies', allergiesInput);
+    // 'allergies' field is already part of formData via event.currentTarget if the textarea has a name attribute.
+    // Explicitly setting it is also fine if we ensure the name attribute is correct.
+    // formData.set('allergies', allergiesInput); // Redundant if textarea name="allergies"
 
     formAction(formData);
   };
@@ -136,13 +139,15 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Input
               id="photo"
-              name="photoFile"
+              name="photoFile" // This name is for the file input itself, not directly used by server action if photoDataUri is primary
               type="file"
               accept="image/*"
               onChange={handlePhotoChange}
               className="file:text-primary file:font-semibold hover:file:bg-primary/10"
               required
+              disabled={isActionPending}
             />
+            {/* This hidden input is crucial for passing the data URI to the server action */}
             <input type="hidden" name="photoDataUri" ref={hiddenPhotoDataUriRef} />
             {photoPreview && (
               <div className="mt-4 relative aspect-video w-full max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary shadow-md">
@@ -157,11 +162,12 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Textarea
               id="allergies"
-              name="allergies"
+              name="allergies" // Ensure this name matches what the server action expects
               placeholder="e.g., gluten, nuts, dairy (comma-separated)"
               value={allergiesInput}
               onChange={handleAllergiesInputChange}
               rows={2}
+              disabled={isActionPending}
             />
              {allergiesTags.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
@@ -174,6 +180,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
                       size="icon"
                       className="h-5 w-5 ml-1 text-muted-foreground hover:text-destructive"
                       onClick={() => removeAllergyTag(tag)}
+                      disabled={isActionPending}
                     >
                       <X className="h-3 w-3" />
                       <span className="sr-only">Remove {tag}</span>
@@ -188,8 +195,8 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full text-lg py-6" disabled={isLoadingForm}>
-            {isLoadingForm ? (
+          <Button type="submit" className="w-full text-lg py-6" disabled={isActionPending}>
+            {isActionPending ? (
               <>
                 <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
                 Generating Recipes...
@@ -203,15 +210,12 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           </Button>
         </CardFooter>
       </form>
-      {/* This explicit error display tied to `state.error` is good, 
-          as the toast in useEffect handles the immediate notification aspect.
-          Ensure isLoadingForm is false when displaying this so it doesn't overlap with global loading indicators. 
-      */}
-      {state?.error && !isLoadingForm && (
+      {/* Display error from actionState if action is not pending and error exists */}
+      {!isActionPending && actionState?.error && (
          <CardFooter>
             <div role="alert" className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-center gap-2 text-sm w-full">
                 <AlertCircle className="h-5 w-5" />
-                <span>{state.error}</span>
+                <span>{actionState.error}</span>
             </div>
          </CardFooter>
       )}
