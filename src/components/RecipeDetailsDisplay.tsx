@@ -1,8 +1,9 @@
+
 import type { AIAssistedRecipe } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Utensils, ListChecks,ClipboardList, Info } from 'lucide-react';
+import { Utensils, ListChecks, ClipboardList, Info, ImageOff } from 'lucide-react';
 import Image from 'next/image';
 
 interface RecipeDetailsDisplayProps {
@@ -10,21 +11,27 @@ interface RecipeDetailsDisplayProps {
 }
 
 export function RecipeDetailsDisplay({ recipe }: RecipeDetailsDisplayProps) {
-  const placeholderImage = `https://placehold.co/800x400.png`;
-
   return (
     <Card className="w-full max-w-4xl mx-auto my-8 shadow-xl rounded-lg">
       <CardHeader className="p-0">
-         <div className="aspect-[2/1] relative w-full rounded-t-lg overflow-hidden">
-          <Image 
-            src={recipe.imageUrl || placeholderImage} 
-            alt={recipe.name} 
-            layout="fill" 
-            objectFit="cover" 
-            className="rounded-t-lg"
-            data-ai-hint="prepared food"
-            priority
-          />
+         <div className="aspect-[2/1] relative w-full rounded-t-lg overflow-hidden bg-muted/30">
+          {recipe.imageUrl ? (
+            <Image 
+              src={recipe.imageUrl} 
+              alt={recipe.name} 
+              layout="fill" 
+              objectFit="cover" 
+              className="rounded-t-lg"
+              data-ai-hint="prepared food"
+              priority
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-muted-foreground p-4">
+              <ImageOff className="h-16 w-16 mb-2" />
+              <p className="text-sm font-semibold">Image Not Available</p>
+              <p className="text-xs">We couldn't generate an image for this recipe.</p>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-6 md:p-8">
