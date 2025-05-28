@@ -19,11 +19,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       <footer className="py-8 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} PhotoRecipe by Kingsley Leung. Cook something amazing!</p>
         <div className="mt-2 flex justify-center items-center gap-4">
-          <Link href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+          <Link href="https://github.com/KingsleyLeung03/photo-recipe" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
             <Github className="h-4 w-4" />
             GitHub
           </Link>
-          <Link href="https://linkedin.com/in/your-profile" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+          <Link href="https://www.linkedin.com/in/zihong-l-258824257/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
             <Linkedin className="h-4 w-4" />
             LinkedIn
           </Link>
