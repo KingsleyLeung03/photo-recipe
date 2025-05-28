@@ -39,13 +39,15 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
     onRecipeGenerationResult(actionState, isActionPending);
   }, [actionState, isActionPending, onRecipeGenerationResult]);
 
-  // Effect to show toasts when an action completes
+  // Effect to show toasts and log when an action completes
   useEffect(() => {
-    if (!isActionPending && actionState !== initialState) { // Only when action state changes from initial AND is not pending
+    if (!isActionPending && actionState !== initialState) {
+      console.debug("PhotoRecipeForm: Action completed. Raw actionState:", actionState);
+
       if (actionState?.error) {
         toast({
           variant: "destructive",
-          title: "Error",
+          title: "Recipe Generation Failed",
           description: actionState.error,
         });
       } else if (actionState?.success && actionState.recipes) {
@@ -53,16 +55,38 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           title: "Recipes Generated!",
           description: `Found ${actionState.recipes.length} recipe ideas.`,
         });
+      } else if (actionState && typeof actionState === 'object' && !('success' in actionState) && !('error' in actionState)) {
+        // This might catch cases where actionState is an Error object or an unexpected structure
+        let errorMessage = "An unexpected client-side error occurred after the action.";
+        if (actionState instanceof Error) {
+          errorMessage = actionState.message;
+        } else if (typeof actionState.toString === 'function') {
+          const stateString = actionState.toString();
+          if (stateString !== '[object Object]') {
+            errorMessage = stateString;
+          }
+        }
+        console.error("PhotoRecipeForm: Received an unexpected action state object:", actionState);
+        toast({
+          variant: "destructive",
+          title: "Unexpected Error",
+          description: errorMessage,
+        });
+      } else if (actionState === null && !isActionPending) {
+        // Potentially the action resolved to null explicitly, or an unhandled server error occurred
+        // that didn't propagate as a client-side JS error object into actionState
+        console.warn("PhotoRecipeForm: Action state is null after completion. This might indicate an unhandled server issue or an unexpected response.");
+        // No toast here as the "unexpected response" error is usually thrown by Next.js itself higher up.
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionState, isActionPending]);
+  }, [actionState, isActionPending]); // initialState and toast are stable (toast is from hook)
 
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type) && !file.type.startsWith('image/')) { // broader check for image/*
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type) && !file.type.startsWith('image/')) { 
         toast({
           variant: "destructive",
           title: "Invalid File Type",
@@ -77,7 +101,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
         return;
       }
       
-      setPhotoFile(file); // Store the original file
+      setPhotoFile(file); 
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -104,25 +128,21 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            // Prefer JPEG for photos for better compression, PNG otherwise or if original was PNG
-            // However, for simplicity and broad compatibility, always outputting JPEG is often fine for model input.
             const compressedDataUrl = canvas.toDataURL('image/jpeg', IMAGE_COMPRESSION_QUALITY);
             setPhotoPreview(compressedDataUrl);
             if (hiddenPhotoDataUriRef.current) {
               hiddenPhotoDataUriRef.current.value = compressedDataUrl;
             }
           } else {
-            // Fallback to original if canvas context fails (should be rare)
             setPhotoPreview(originalDataUrl);
             if (hiddenPhotoDataUriRef.current) {
               hiddenPhotoDataUriRef.current.value = originalDataUrl;
             }
-            toast({variant: "destructive", title: "Compression Error", description: "Could not compress image, using original."})
+            toast({variant: "destructive", title: "Image Compression Error", description: "Could not compress image, using original."})
           }
         };
         img.onerror = () => {
-            // Fallback if image can't be loaded (e.g. HEIC on unsupported browser without polyfill)
-            setPhotoPreview(originalDataUrl); // Use original if compression fails
+            setPhotoPreview(originalDataUrl); 
             if (hiddenPhotoDataUriRef.current) {
                 hiddenPhotoDataUriRef.current.value = originalDataUrl;
             }
@@ -157,8 +177,8 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hiddenPhotoDataUriRef.current?.value && !photoPreview) { // Check if there's data to send
-      toast({ variant: "destructive", title: "No Photo", description: "Please upload and process a photo of your ingredients." });
+    if (!hiddenPhotoDataUriRef.current?.value && !photoPreview) { 
+      toast({ variant: "destructive", title: "No Photo Uploaded", description: "Please upload a photo of your ingredients." });
       return;
     }
 
@@ -166,10 +186,9 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
     if (hiddenPhotoDataUriRef.current?.value) {
       formData.set('photoDataUri', hiddenPhotoDataUriRef.current.value);
     } else if (photoPreview) { 
-      // This case should ideally not be hit if compression works and sets the ref
       formData.set('photoDataUri', photoPreview);
     } else {
-      toast({ variant: "destructive", title: "Photo Error", description: "Could not process photo. Please re-upload." });
+      toast({ variant: "destructive", title: "Photo Processing Error", description: "Could not process photo. Please re-upload." });
       return;
     }
     
@@ -273,14 +292,11 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             AI-generated content. Please verify critical information, like allergy details.
           </p>
         </div>
-      {!isActionPending && actionState?.error && (
-         <CardFooter>
-            <div role="alert" className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-center gap-2 text-sm w-full">
-                <AlertCircle className="h-5 w-5" />
-                <span>{actionState.error}</span>
-            </div>
-         </CardFooter>
-      )}
+      {/* This specific alert was removed in favor of the useEffect toast and console logging for actionState errors */}
+      {/* If actionState.error is directly populated by the server action, the toast will handle it. */}
+      {/* If the error is more fundamental (like "unexpected response"), console.debug will provide raw actionState. */}
     </Card>
   );
 }
+
+    
