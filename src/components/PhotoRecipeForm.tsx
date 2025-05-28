@@ -20,13 +20,15 @@ interface PhotoRecipeFormProps {
 
 const initialState: RecipeGenerationResult | null = null;
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
+const MAX_IMAGE_DIMENSION = 1024; // Max width or height for compressed image
+const IMAGE_COMPRESSION_QUALITY = 0.7; // JPEG quality (0.0 to 1.0)
 
 export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormProps) {
   const [actionState, formAction, isActionPending] = useActionState(generateRecipesAction, initialState);
   const { toast } = useToast();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null); // Keep original file for name/type if needed
   const [allergiesInput, setAllergiesInput] = useState<string>('');
   const [allergiesTags, setAllergiesTags] = useState<string[]>([]);
 
@@ -39,8 +41,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
 
   // Effect to show toasts when an action completes
   useEffect(() => {
-    // Only show toasts if the action is no longer pending AND the state has changed from initial
-    if (!isActionPending && actionState !== initialState) {
+    if (!isActionPending && actionState !== initialState) { // Only when action state changes from initial AND is not pending
       if (actionState?.error) {
         toast({
           variant: "destructive",
@@ -55,19 +56,19 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actionState, isActionPending, toast]); // initialState is stable, toast is stable
+  }, [actionState, isActionPending]);
 
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type) && !file.type.startsWith('image/')) { // broader check for image/*
         toast({
           variant: "destructive",
           title: "Invalid File Type",
-          description: "Please upload a valid image file (JPG, PNG, WEBP, HEIC, HEIF).",
+          description: `Please upload a valid image file (e.g., JPG, PNG, WEBP). Selected type: ${file.type}`,
         });
-        event.target.value = ""; // Clear the input
+        event.target.value = ""; 
         setPhotoPreview(null);
         setPhotoFile(null);
         if (hiddenPhotoDataUriRef.current) {
@@ -75,14 +76,59 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
         }
         return;
       }
-      setPhotoFile(file);
+      
+      setPhotoFile(file); // Store the original file
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        const result = reader.result as string;
-        setPhotoPreview(result);
-        if (hiddenPhotoDataUriRef.current) {
-          hiddenPhotoDataUriRef.current.value = result;
-        }
+        const originalDataUrl = reader.result as string;
+        
+        const img = document.createElement('img');
+        img.onload = () => {
+          let { width, height } = img;
+          
+          if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+            if (width > height) {
+              height = Math.round((height * MAX_IMAGE_DIMENSION) / width);
+              width = MAX_IMAGE_DIMENSION;
+            } else {
+              width = Math.round((width * MAX_IMAGE_DIMENSION) / height);
+              height = MAX_IMAGE_DIMENSION;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Prefer JPEG for photos for better compression, PNG otherwise or if original was PNG
+            // However, for simplicity and broad compatibility, always outputting JPEG is often fine for model input.
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', IMAGE_COMPRESSION_QUALITY);
+            setPhotoPreview(compressedDataUrl);
+            if (hiddenPhotoDataUriRef.current) {
+              hiddenPhotoDataUriRef.current.value = compressedDataUrl;
+            }
+          } else {
+            // Fallback to original if canvas context fails (should be rare)
+            setPhotoPreview(originalDataUrl);
+            if (hiddenPhotoDataUriRef.current) {
+              hiddenPhotoDataUriRef.current.value = originalDataUrl;
+            }
+            toast({variant: "destructive", title: "Compression Error", description: "Could not compress image, using original."})
+          }
+        };
+        img.onerror = () => {
+            // Fallback if image can't be loaded (e.g. HEIC on unsupported browser without polyfill)
+            setPhotoPreview(originalDataUrl); // Use original if compression fails
+            if (hiddenPhotoDataUriRef.current) {
+                hiddenPhotoDataUriRef.current.value = originalDataUrl;
+            }
+            toast({variant: "destructive", title: "Image Load Error", description: "Could not load image for compression, using original."})
+        };
+        img.src = originalDataUrl;
       };
       reader.readAsDataURL(file);
     } else {
@@ -111,28 +157,22 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!photoFile) {
-      toast({ variant: "destructive", title: "No Photo", description: "Please upload a photo of your ingredients." });
+    if (!hiddenPhotoDataUriRef.current?.value && !photoPreview) { // Check if there's data to send
+      toast({ variant: "destructive", title: "No Photo", description: "Please upload and process a photo of your ingredients." });
       return;
     }
 
     const formData = new FormData(event.currentTarget);
-    // Ensure photoDataUri is set from the ref if available, or fallback to preview
-    // This is crucial because the file input itself isn't directly part of what useActionState serializes easily for the server action.
     if (hiddenPhotoDataUriRef.current?.value) {
       formData.set('photoDataUri', hiddenPhotoDataUriRef.current.value);
-    } else if (photoPreview) {
-      // This is a fallback, ideally the ref should always have the value
+    } else if (photoPreview) { 
+      // This case should ideally not be hit if compression works and sets the ref
       formData.set('photoDataUri', photoPreview);
     } else {
-      // Handle case where no photo data URI is available (should be caught by !photoFile check ideally)
       toast({ variant: "destructive", title: "Photo Error", description: "Could not process photo. Please re-upload." });
       return;
     }
-    // 'allergies' field is already part of formData via event.currentTarget if the textarea has a name attribute.
-    // Explicitly setting it is also fine if we ensure the name attribute is correct.
-    // formData.set('allergies', allergiesInput); // Redundant if textarea name="allergies"
-
+    
     startTransition(() => {
       formAction(formData);
     });
@@ -157,7 +197,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Input
               id="photo"
-              name="photoFile" // This name is for the file input itself, not directly used by server action if photoDataUri is primary
+              name="photoFile" 
               type="file"
               accept={ACCEPTED_IMAGE_TYPES}
               onChange={handlePhotoChange}
@@ -165,7 +205,6 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
               required
               disabled={isActionPending}
             />
-            {/* This hidden input is crucial for passing the data URI to the server action */}
             <input type="hidden" name="photoDataUri" ref={hiddenPhotoDataUriRef} />
             {photoPreview && (
               <div className="mt-4 relative aspect-video w-full max-w-md mx-auto rounded-lg overflow-hidden border-2 border-primary shadow-md">
@@ -180,7 +219,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             </Label>
             <Textarea
               id="allergies"
-              name="allergies" // Ensure this name matches what the server action expects
+              name="allergies" 
               placeholder="e.g., gluten, nuts, dairy (comma-separated)"
               value={allergiesInput}
               onChange={handleAllergiesInputChange}
@@ -213,7 +252,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full text-lg py-6" disabled={isActionPending}>
+          <Button type="submit" className="w-full text-lg py-6" disabled={isActionPending || (!photoPreview && !hiddenPhotoDataUriRef.current?.value)}>
             {isActionPending ? (
               <>
                 <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5" />
@@ -234,7 +273,6 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
             AI-generated content. Please verify critical information, like allergy details.
           </p>
         </div>
-      {/* Display error from actionState if action is not pending and error exists */}
       {!isActionPending && actionState?.error && (
          <CardFooter>
             <div role="alert" className="p-3 bg-destructive/10 border border-destructive text-destructive rounded-md flex items-center gap-2 text-sm w-full">
