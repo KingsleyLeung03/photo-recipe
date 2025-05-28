@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview Suggests a list of recipes based on identified ingredients.
+ * @fileOverview Suggests a list of recipes based on identified ingredients, including details.
  *
  * - suggestRecipes - A function that suggests recipes based on ingredients.
  * - SuggestRecipesInput - The input type for the suggestRecipes function.
@@ -28,8 +28,11 @@ const SuggestRecipesOutputSchema = z.object({
     z.object({
       name: z.string().describe('The name of the recipe.'),
       description: z.string().describe('A short description of the recipe.'),
+      ingredients: z.array(z.string()).describe('A detailed list of ingredients with quantities (e.g., "1 cup flour", "2 eggs").'),
+      instructions: z.array(z.string()).describe('Step-by-step cooking instructions.'),
+      nutritionalInfo: z.string().describe('Approximate nutritional information per serving (e.g., "Calories: 350, Protein: 15g, Carbs: 40g, Fat: 10g"). Format as a single string.'),
     })
-  ).describe('A list of suggested recipes based on the ingredients.'),
+  ).describe('A list of suggested recipes based on the ingredients, including details.'),
 });
 export type SuggestRecipesOutput = z.infer<typeof SuggestRecipesOutputSchema>;
 
@@ -43,11 +46,19 @@ const prompt = ai.definePrompt({
   output: {schema: SuggestRecipesOutputSchema},
   prompt: `You are a recipe suggestion expert.
 
-  Based on the ingredients provided, suggest a list of recipes that can be made.  Take into account any allergies that the user specifies and exclude those ingredients from the recipes.
+  Based on the ingredients provided, suggest a list of recipes that can be made. For each recipe, you MUST provide:
+  1. A "name".
+  2. A "description".
+  3. A detailed list of "ingredients", including quantities (e.g., ["1 cup flour", "2 eggs"]).
+  4. Step-by-step cooking "instructions" (e.g., ["Preheat oven to 350F.", "Mix flour and eggs."]).
+  5. Approximate "nutritionalInfo" per serving (e.g., "Calories: 350, Protein: 15g, Carbs: 40g, Fat: 10g"). This should be a single string.
+
+  Take into account any allergies that the user specifies and exclude those ingredients from the recipes.
 
   Ingredients: {{{ingredients}}}
   Allergies: {{#if allergies}}{{{allergies}}}{{else}}None{{/if}}
 
+  Respond with the recipes in the specified JSON format.
   Recipes:`,
 });
 

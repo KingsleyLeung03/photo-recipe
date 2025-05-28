@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -65,6 +66,9 @@ export async function generateRecipesAction(
       id: generateUUID(),
       name: recipe.name,
       description: recipe.description,
+      ingredients: recipe.ingredients || [], // Ensure array even if AI misses it
+      instructions: recipe.instructions || [], // Ensure array even if AI misses it
+      nutritionalInfo: recipe.nutritionalInfo || "Nutritional information not available.", // Ensure string
       originalIdentifiedIngredients: identifiedIngredients,
       originalAllergies: allergies ? allergies.split(',').map(a => a.trim()).filter(a => a) : [],
     }));
