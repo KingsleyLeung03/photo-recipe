@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { identifyIngredients as identifyIngredientsFlow } from '@/ai/flows/identify-ingredients';
 import { suggestRecipes as suggestRecipesFlow } from '@/ai/flows/suggest-recipes';
+import { generateRecipeImage as generateRecipeImageFlow } from '@/ai/flows/generate-recipe-image-flow';
 import type { AIAssistedRecipe } from '@/types';
 
 const recipeGenerationSchema = z.object({
@@ -51,7 +52,7 @@ export async function generateRecipesAction(
     }
     const identifiedIngredients = ingredientsResult.ingredients;
 
-    // Step 2: Suggest recipes
+    // Step 2: Suggest recipes (textual details)
     const recipesPayload = {
       ingredients: identifiedIngredients.join(','),
       ...(allergies && allergies.trim() !== '' && { allergies }),
@@ -62,18 +63,34 @@ export async function generateRecipesAction(
       return { success: false, error: 'Could not generate recipe suggestions.', identifiedIngredients };
     }
 
-    const recipesWithIds: AIAssistedRecipe[] = suggestedRecipesResult.recipes.map(recipe => ({
+    const recipesWithDetails: Omit<AIAssistedRecipe, 'imageUrl'>[] = suggestedRecipesResult.recipes.map(recipe => ({
       id: generateUUID(),
       name: recipe.name,
       description: recipe.description,
-      ingredients: recipe.ingredients || [], // Ensure array even if AI misses it
-      instructions: recipe.instructions || [], // Ensure array even if AI misses it
-      nutritionalInfo: recipe.nutritionalInfo || "Nutritional information not available.", // Ensure string
+      ingredients: recipe.ingredients || [],
+      instructions: recipe.instructions || [],
+      nutritionalInfo: recipe.nutritionalInfo || "Nutritional information not available.",
       originalIdentifiedIngredients: identifiedIngredients,
       originalAllergies: allergies ? allergies.split(',').map(a => a.trim()).filter(a => a) : [],
     }));
 
-    return { success: true, recipes: recipesWithIds, identifiedIngredients };
+    // Step 3: Generate images for each recipe
+    const recipesWithImages: AIAssistedRecipe[] = [];
+    for (const recipe of recipesWithDetails) {
+      try {
+        const imageResult = await generateRecipeImageFlow({
+          recipeName: recipe.name,
+          recipeDescription: recipe.description,
+        });
+        recipesWithImages.push({ ...recipe, imageUrl: imageResult.imageUrl });
+      } catch (imageError) {
+        console.warn(`Failed to generate image for recipe "${recipe.name}":`, imageError);
+        // Add recipe without image if generation fails
+        recipesWithImages.push({ ...recipe, imageUrl: undefined }); 
+      }
+    }
+
+    return { success: true, recipes: recipesWithImages, identifiedIngredients };
 
   } catch (error) {
     console.error('Error in generateRecipesAction:', error);
