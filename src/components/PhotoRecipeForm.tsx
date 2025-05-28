@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, ImageUp, Sparkles, Tag, X, Loader2 } from 'lucide-react';
+import { AlertCircle, ImageUp, Sparkles, Tag, X, Loader2, Info } from 'lucide-react';
 import { generateRecipesAction, type RecipeGenerationResult } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from './ui/badge';
@@ -28,7 +28,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [allergiesInput, setAllergiesInput] = useState<string>('');
   const [allergiesTags, setAllergiesTags] = useState<string[]>([]);
-  
+
   const hiddenPhotoDataUriRef = useRef<HTMLInputElement>(null);
 
   // Effect to notify parent about the current actionState and pending status
@@ -78,7 +78,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
         }
     }
   };
-  
+
   const handleAllergiesInputChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const value = event.target.value;
     setAllergiesInput(value);
@@ -100,7 +100,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       toast({ variant: "destructive", title: "No Photo", description: "Please upload a photo of your ingredients." });
       return;
     }
-    
+
     const formData = new FormData(event.currentTarget);
     // Ensure photoDataUri is set from the ref if available, or fallback to preview
     // This is crucial because the file input itself isn't directly part of what useActionState serializes easily for the server action.
@@ -213,6 +213,12 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
           </Button>
         </CardFooter>
       </form>
+       <div className="px-6 pb-4 text-center">
+          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+            <Info className="h-3 w-3" />
+            AI-generated content. Please verify critical information, like allergy details.
+          </p>
+        </div>
       {/* Display error from actionState if action is not pending and error exists */}
       {!isActionPending && actionState?.error && (
          <CardFooter>
