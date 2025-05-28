@@ -59,8 +59,12 @@ export async function generateRecipesAction(
     };
     const suggestedRecipesResult = await suggestRecipesFlow(recipesPayload);
     
-    if (!suggestedRecipesResult || !suggestedRecipesResult.recipes) {
-      return { success: false, error: 'Could not generate recipe suggestions.', identifiedIngredients };
+    if (!suggestedRecipesResult || !suggestedRecipesResult.recipes || suggestedRecipesResult.recipes.length === 0) {
+      return { 
+        success: false, 
+        error: 'Could not generate recipe suggestions based on the identified ingredients. Please try a different photo or adjust your allergies.', 
+        identifiedIngredients 
+      };
     }
 
     const recipesWithDetails: Omit<AIAssistedRecipe, 'imageUrl'>[] = suggestedRecipesResult.recipes.map(recipe => ({
