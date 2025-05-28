@@ -19,6 +19,7 @@ interface PhotoRecipeFormProps {
 }
 
 const initialState: RecipeGenerationResult | null = null;
+const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 
 export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormProps) {
   const [actionState, formAction, isActionPending] = useActionState(generateRecipesAction, initialState);
@@ -60,6 +61,20 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Invalid File Type",
+          description: "Please upload a valid image file (JPG, PNG, WEBP, HEIC, HEIF).",
+        });
+        event.target.value = ""; // Clear the input
+        setPhotoPreview(null);
+        setPhotoFile(null);
+        if (hiddenPhotoDataUriRef.current) {
+          hiddenPhotoDataUriRef.current.value = "";
+        }
+        return;
+      }
       setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -144,7 +159,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
               id="photo"
               name="photoFile" // This name is for the file input itself, not directly used by server action if photoDataUri is primary
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_IMAGE_TYPES}
               onChange={handlePhotoChange}
               className="file:text-primary file:font-semibold hover:file:bg-primary/10"
               required
