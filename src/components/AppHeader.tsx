@@ -54,7 +54,22 @@ export function AppHeader() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[250px] pt-10">
               <nav className="flex flex-col gap-3">
-                <SheetClose asChild>{navLinks}</SheetClose>
+                <SheetClose asChild>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/" className="flex items-center gap-1 w-full justify-start">
+                      <Home className="h-4 w-4" />
+                      Home
+                    </Link>
+                  </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/saved" className="flex items-center gap-1 w-full justify-start">
+                      <BookHeart className="h-4 w-4" />
+                      Saved Recipes
+                    </Link>
+                  </Button>
+                </SheetClose>
               </nav>
             </SheetContent>
           </Sheet>
