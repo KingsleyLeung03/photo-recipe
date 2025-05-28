@@ -69,7 +69,20 @@ const suggestRecipesFlow = ai.defineFlow(
     outputSchema: SuggestRecipesOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      if (!output || !output.recipes) {
+        // If the model returns nothing or an invalid structure for recipes,
+        // return an empty list, which is valid per the schema.
+        // The calling action already checks for an empty recipes list.
+        console.warn('SuggestRecipesFlow: LLM output was null or missing recipes. Returning empty list.');
+        return { recipes: [] };
+      }
+      return output; // Output is valid and contains a recipes array (possibly empty)
+    } catch (e) {
+      console.error("Error in suggestRecipesFlow's prompt execution:", e);
+      // Return a schema-compliant response indicating no recipes were found.
+      return { recipes: [] };
+    }
   }
 );

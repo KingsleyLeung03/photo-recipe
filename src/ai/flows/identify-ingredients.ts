@@ -51,7 +51,20 @@ const identifyIngredientsFlow = ai.defineFlow(
     outputSchema: IdentifyIngredientsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    try {
+      const {output} = await prompt(input);
+      if (!output || !output.ingredients) {
+        // If the model returns nothing or an invalid structure for ingredients,
+        // return an empty list, which is valid per the schema.
+        // The calling action already checks for an empty ingredients list.
+        console.warn('IdentifyIngredientsFlow: LLM output was null or missing ingredients. Returning empty list.');
+        return { ingredients: [] };
+      }
+      return output; // Output is valid and contains an ingredients array (possibly empty)
+    } catch (e) {
+      console.error("Error in identifyIngredientsFlow's prompt execution:", e);
+      // Return a schema-compliant response indicating no ingredients were found.
+      return { ingredients: [] };
+    }
   }
 );
