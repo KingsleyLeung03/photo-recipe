@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { LogoIcon } from '@/components/icons/LogoIcon';
 import { Button } from '@/components/ui/button';
 import { BookHeart, Home, Menu } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile'; // Import useIsMobile hook
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet';
@@ -16,7 +18,7 @@ import {
 export function AppHeader() {
   const isMobile = useIsMobile();
 
-  const navLinks = (
+  const desktopNavLinks = (
     <>
       <Button variant="ghost" size="sm" asChild>
         <Link href="/" className="flex items-center gap-1 w-full justify-start">
@@ -43,7 +45,7 @@ export function AppHeader() {
           </span>
         </Link>
 
-        {isMobile === undefined ? ( // Skeleton or placeholder for SSR
+        {isMobile === undefined ? ( 
           <div className="h-8 w-20 animate-pulse rounded-md bg-muted/50 md:hidden"></div>
         ) : isMobile ? (
           <Sheet>
@@ -52,7 +54,10 @@ export function AppHeader() {
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[250px] pt-10">
+            <SheetContent side="right" className="w-[250px]"> {/* Removed pt-10, SheetHeader will provide padding */}
+              <SheetHeader className="pb-4"> {/* Added pb-4 for spacing below title */}
+                <SheetTitle>Navigation Menu</SheetTitle>
+              </SheetHeader>
               <nav className="flex flex-col gap-3">
                 <SheetClose asChild>
                   <Button variant="ghost" size="sm" asChild>
@@ -75,7 +80,7 @@ export function AppHeader() {
           </Sheet>
         ) : (
           <nav className="flex items-center gap-2">
-            {navLinks}
+            {desktopNavLinks}
           </nav>
         )}
       </div>
