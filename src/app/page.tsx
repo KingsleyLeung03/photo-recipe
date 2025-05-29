@@ -82,6 +82,11 @@ export default function HomePage() {
           recipeToSave.imageUrl = compressedUrl;
         } catch (e) {
           console.error("Failed to compress image for saving on main page:", e);
+          // If compression fails, we might still save without image or with original
+          // For now, it will save with the original if compressDataUri rejects with it.
+          // Or, if it truly fails and returns original, it might be too big.
+          // A more robust solution might be to delete imageUrl if compression fails badly.
+          // delete recipeToSave.imageUrl; // Fallback to no image if compression fails
         }
       } else {
         delete recipeToSave.imageUrl;
@@ -110,11 +115,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (generatedRecipes.length > 0) {
-      const recipesForSession = generatedRecipes.map(recipe => {
-        const { imageUrl, ...rest } = recipe;
-        return rest;
-      });
-      setSessionRecipes(recipesForSession);
+      // Preserve imageUrl in sessionRecipes
+      // Compression for localStorage happens in toggleSaveRecipe
+      setSessionRecipes(generatedRecipes);
     }
   }, [generatedRecipes, setSessionRecipes]);
 
