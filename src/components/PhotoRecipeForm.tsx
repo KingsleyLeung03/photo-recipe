@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertCircle, ImageUp, Sparkles, Tag, X, Loader2, Info } from 'lucide-react';
+import { ImageUp, Sparkles, Tag, X, Loader2, Info } from 'lucide-react';
 import { generateRecipesAction, type RecipeGenerationResult } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from './ui/badge';
@@ -28,7 +28,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
   const { toast } = useToast();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null); // Keep original file for name/type if needed
+  // const [photoFile, setPhotoFile] = useState<File | null>(null); // Keep original file for name/type if needed
   const [allergiesInput, setAllergiesInput] = useState<string>('');
   const [allergiesTags, setAllergiesTags] = useState<string[]>([]);
 
@@ -94,14 +94,14 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
         });
         event.target.value = ""; 
         setPhotoPreview(null);
-        setPhotoFile(null);
+        // setPhotoFile(null);
         if (hiddenPhotoDataUriRef.current) {
           hiddenPhotoDataUriRef.current.value = "";
         }
         return;
       }
       
-      setPhotoFile(file); 
+      // setPhotoFile(file); 
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -153,7 +153,7 @@ export function PhotoRecipeForm({ onRecipeGenerationResult }: PhotoRecipeFormPro
       reader.readAsDataURL(file);
     } else {
       setPhotoPreview(null);
-      setPhotoFile(null);
+      // setPhotoFile(null);
       if (hiddenPhotoDataUriRef.current) {
           hiddenPhotoDataUriRef.current.value = "";
         }

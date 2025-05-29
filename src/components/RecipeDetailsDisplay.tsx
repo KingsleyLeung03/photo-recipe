@@ -29,7 +29,7 @@ export function RecipeDetailsDisplay({ recipe }: RecipeDetailsDisplayProps) {
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-muted-foreground p-4">
               <ImageOff className="h-16 w-16 mb-2" />
               <p className="text-sm font-semibold">Image Not Available</p>
-              <p className="text-xs">We couldn't generate an image for this recipe.</p>
+              <p className="text-xs">We couldn&apos;t generate an image for this recipe.</p>
             </div>
           )}
         </div>

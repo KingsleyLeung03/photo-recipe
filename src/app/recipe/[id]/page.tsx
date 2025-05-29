@@ -62,7 +62,7 @@ export default function RecipeDetailPage() {
         return; // Prevent saving
       }
 
-      let recipeToSave: AIAssistedRecipe = { ...recipe };
+      const recipeToSave: AIAssistedRecipe = { ...recipe };
       if (recipe.imageUrl) {
         try {
           console.log(`Compressing image for (details page): ${recipe.name}`);
@@ -103,7 +103,7 @@ export default function RecipeDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-6">
-              We couldn't find the recipe you're looking for. It might have been a temporary suggestion or an incorrect link.
+              We couldn&apos;t find the recipe you&apos;re looking for. It might have been a temporary suggestion or an incorrect link.
             </p>
             <Button onClick={() => router.push('/')} className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" /> Go Back Home

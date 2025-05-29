@@ -77,7 +77,7 @@ export default function HomePage() {
         return; // Prevent saving
       }
 
-      let recipeToSave: AIAssistedRecipe = { ...recipeToToggle };
+      const recipeToSave: AIAssistedRecipe = { ...recipeToToggle };
       if (recipeToToggle.imageUrl) {
         try {
           console.log(`Compressing image for: ${recipeToToggle.name}`);
@@ -176,7 +176,7 @@ export default function HomePage() {
           <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-muted-foreground mb-2">No Recipes Found</h2>
           <p className="text-lg text-muted-foreground">
-            We couldn't find any recipes for the ingredients {identifiedIngredients && identifiedIngredients.length > 0 ? `(${identifiedIngredients.join(', ')})` : ''}.
+            We couldn&apos;t find any recipes for the ingredients {identifiedIngredients && identifiedIngredients.length > 0 ? `(${identifiedIngredients.join(', ')})` : ''}.
           </p>
           <p className="text-muted-foreground">Try a different photo or adjust your allergies.</p>
         </section>
