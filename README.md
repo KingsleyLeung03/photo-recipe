@@ -48,9 +48,8 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/photorecipe.git 
-    # Replace with your actual repository URL
-    cd photorecipe
+    git clone https://github.com/KingsleyLeung03/photo-recipe.git 
+    cd photo-recipe
     ```
 
 2.  **Environment Variables**:
@@ -81,7 +80,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 4.  **Run the development server**:
     ```bash
-    pnpm dev
+    pnpm run dev
     ```
     The application should now be running on [http://localhost:9002](http://localhost:9002) (or the port specified in `package.json`).
 
