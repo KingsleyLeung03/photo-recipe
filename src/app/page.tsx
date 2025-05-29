@@ -30,32 +30,25 @@ export default function HomePage() {
 
 
   const handleRecipeGenerationResult = useCallback((result: RecipeGenerationResult | null, loading: boolean) => {
-    setIsLoading(loading); // Update loading state based on form's pending status
+    setIsLoading(loading); 
 
-    if (!loading) { // When an action is NOT pending (i.e., it has completed or it's the initial state)
-      // An "attempt" has been made if the action state (result) is no longer the initial null value.
-      // This distinguishes the initial call from a completed action.
-      // The `initialState` for useActionState in the PhotoRecipeForm is `null`.
+    if (!loading) { 
       if (result !== null) {
         setHasAttemptedGeneration(true);
       }
 
-      if (result) { // If there's an actual result object (not null)
+      if (result) { 
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
           setIdentifiedIngredients(result.identifiedIngredients);
           setError(null);
         } else if (result.error) {
           setError(result.error);
-          setGeneratedRecipes([]); // Clear recipes on error
-          setIdentifiedIngredients(result.identifiedIngredients); // Still show identified ingredients if available
+          setGeneratedRecipes([]); 
+          setIdentifiedIngredients(result.identifiedIngredients); 
         }
       }
-      // If result is null AND !loading:
-      // This is the initial state call from PhotoRecipeForm when it mounts.
-      // We do nothing to `generatedRecipes` or `error` here. `hasAttemptedGeneration` correctly remains false.
     }
-    // If loading is true, only setIsLoading(true) runs, and the rest of the logic in this block is skipped.
   }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]);
 
   const toggleSaveRecipe = async (recipeId: string) => {
@@ -74,6 +67,16 @@ export default function HomePage() {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
       toast({ title: "Recipe Unsaved", description: `"${recipeToToggle.name}" removed from your saved recipes.` });
     } else {
+      // Check if trying to save a new recipe and limit is reached
+      if (savedRecipes.length >= MAX_SAVED_RECIPES) {
+        toast({
+          title: "Save Limit Reached",
+          description: `You can save up to ${MAX_SAVED_RECIPES} recipes. Please unsave one to add a new recipe.`,
+          variant: "default" 
+        });
+        return; // Prevent saving
+      }
+
       let recipeToSave: AIAssistedRecipe = { ...recipeToToggle };
       if (recipeToToggle.imageUrl) {
         try {
@@ -82,31 +85,16 @@ export default function HomePage() {
           recipeToSave.imageUrl = compressedUrl;
         } catch (e) {
           console.error("Failed to compress image for saving on main page:", e);
-          // If compression fails, we might still save without image or with original
-          // For now, it will save with the original if compressDataUri rejects with it.
-          // Or, if it truly fails and returns original, it might be too big.
-          // A more robust solution might be to delete imageUrl if compression fails badly.
-          // delete recipeToSave.imageUrl; // Fallback to no image if compression fails
         }
       } else {
         delete recipeToSave.imageUrl;
       }
-
-      setSavedRecipes(prev => {
-        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave];
-        if (recipesWithNew.length > MAX_SAVED_RECIPES) {
-          toast({
-            title: "Recipe Limit Reached",
-            description: `Removed oldest recipe to save "${recipeToSave.name}". Max ${MAX_SAVED_RECIPES} recipes.`,
-            variant: "default"
-          });
-          return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
-        }
-        toast({
-          title: "Recipe Saved!",
-          description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.`
-        });
-        return recipesWithNew;
+      
+      const updatedSavedRecipes = [...savedRecipes, recipeToSave];
+      setSavedRecipes(updatedSavedRecipes);
+      toast({
+        title: "Recipe Saved!",
+        description: `"${recipeToSave.name}" added. (${updatedSavedRecipes.length}/${MAX_SAVED_RECIPES} recipes saved)`
       });
     }
   };
@@ -115,9 +103,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (generatedRecipes.length > 0) {
-      // Preserve imageUrl in sessionRecipes
-      // Compression for localStorage happens in toggleSaveRecipe
-      setSessionRecipes(generatedRecipes);
+      setSessionRecipes(generatedRecipes.map(r => ({...r, imageUrl: r.imageUrl}))); // Preserve imageUrl
     }
   }, [generatedRecipes, setSessionRecipes]);
 
@@ -177,6 +163,8 @@ export default function HomePage() {
                 recipe={recipe}
                 isSaved={savedRecipes.some(r => r.id === recipe.id)}
                 onToggleSave={() => toggleSaveRecipe(recipe.id)}
+                // Pass saved count and max to card if we want to disable button there directly
+                // For now, the logic in toggleSaveRecipe handles prevention.
               />
             ))}
           </div>

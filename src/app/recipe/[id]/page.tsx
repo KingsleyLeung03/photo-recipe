@@ -8,11 +8,9 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { RecipeDetailsDisplay } from '@/components/RecipeDetailsDisplay';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ArrowLeft, Heart, Loader2 } from 'lucide-react';
-// Link import will be removed if no longer used, but Button might use it implicitly if `asChild` was used with a Link elsewhere.
-// For this specific change, explicit Link component around this button is removed.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { compressDataUri } from '@/utils/image-utils'; // Import compression utility
+import { compressDataUri } from '@/utils/image-utils';
 
 const EMPTY_RECIPES_ARRAY: AIAssistedRecipe[] = [];
 const MAX_SAVED_RECIPES = 3;
@@ -32,23 +30,13 @@ export default function RecipeDetailPage() {
   useEffect(() => {
     if (recipeId) {
       setIsLoading(true);
-      // Try to find in currently generated/session recipes first (these may or may not have imageUrl)
       let foundRecipe = sessionRecipes.find(r => r.id === recipeId);
       
-      // If not in session, check saved recipes (these will have compressed or no imageUrl)
       if (!foundRecipe) {
         foundRecipe = savedRecipes.find(r => r.id === recipeId);
       }
       
-      // If still not found but generatedRecipes (from HomePage, not directly accessible here) might have it,
-      // this scenario implies a direct navigation to a new recipe.
-      // For simplicity, we primarily rely on session and saved.
-      // A more robust solution might involve a global state or fetching if ID not in local sources.
-
       if (foundRecipe) {
-        // If the recipe details page is loaded directly, and it was from a fresh generation,
-        // it might have a full-size image. The `recipe` state here could hold this.
-        // When saved, it will be compressed.
         setRecipe(foundRecipe);
       }
       setIsLoading(false);
@@ -57,7 +45,7 @@ export default function RecipeDetailPage() {
     }
   }, [recipeId, savedRecipes, sessionRecipes]);
 
-  const toggleSaveRecipe = async () => { // Make async
+  const toggleSaveRecipe = async () => {
     if (!recipe) return;
 
     const isAlreadySaved = savedRecipes.some(r => r.id === recipe.id);
@@ -65,6 +53,15 @@ export default function RecipeDetailPage() {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipe.id));
       toast({ title: "Recipe Unsaved", description: `"${recipe.name}" removed from your saved recipes.` });
     } else {
+      if (savedRecipes.length >= MAX_SAVED_RECIPES) {
+        toast({
+          title: "Save Limit Reached",
+          description: `You can save up to ${MAX_SAVED_RECIPES} recipes. Please unsave one to add a new recipe.`,
+          variant: "default"
+        });
+        return; // Prevent saving
+      }
+
       let recipeToSave: AIAssistedRecipe = { ...recipe };
       if (recipe.imageUrl) {
         try {
@@ -73,27 +70,16 @@ export default function RecipeDetailPage() {
           recipeToSave.imageUrl = compressedUrl;
         } catch (e) {
           console.error("Failed to compress image for saving on details page:", e);
-          // recipeToSave.imageUrl will retain the original or fallback
         }
       } else {
         delete recipeToSave.imageUrl;
       }
 
-      setSavedRecipes(prev => {
-        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave]; // Avoid duplicates
-        if (recipesWithNew.length > MAX_SAVED_RECIPES) {
-          toast({
-            title: "Recipe Limit Reached",
-            description: `Removed oldest recipe to save "${recipeToSave.name}". Max ${MAX_SAVED_RECIPES} recipes.`,
-            variant: "default"
-          });
-          return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
-        }
-        toast({ 
-          title: "Recipe Saved!", 
-          description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
-        });
-        return recipesWithNew;
+      const updatedSavedRecipes = [...savedRecipes.filter(r => r.id !== recipeToSave.id), recipeToSave];
+      setSavedRecipes(updatedSavedRecipes);
+      toast({ 
+        title: "Recipe Saved!", 
+        description: `"${recipeToSave.name}" added. (${updatedSavedRecipes.length}/${MAX_SAVED_RECIPES} recipes saved)` 
       });
     }
   };
@@ -129,6 +115,14 @@ export default function RecipeDetailPage() {
   }
 
   const isSaved = savedRecipes.some(r => r.id === recipe.id);
+  const saveDisabled = !isSaved && savedRecipes.length >= MAX_SAVED_RECIPES;
+  let saveButtonText = 'Save Recipe';
+  if (isSaved) {
+    saveButtonText = 'Unsave Recipe';
+  } else if (saveDisabled) {
+    saveButtonText = 'Limit Reached';
+  }
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -136,14 +130,18 @@ export default function RecipeDetailPage() {
         <Button variant="outline" size="sm" onClick={() => router.back()} className="flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
-        <Button variant={isSaved ? "secondary" : "default"} size="sm" onClick={toggleSaveRecipe} className="flex items-center gap-1 w-full sm:w-auto">
-          <Heart className={`h-5 w-5 ${isSaved ? 'fill-accent text-accent' : ''}`} />
-          {isSaved ? 'Unsave Recipe' : 'Save Recipe'}
+        <Button 
+          variant={isSaved ? "secondary" : "default"} 
+          size="sm" 
+          onClick={toggleSaveRecipe} 
+          className="flex items-center gap-1 w-full sm:w-auto"
+          disabled={saveDisabled}
+        >
+          <Heart className={`h-5 w-5 ${isSaved ? 'fill-accent text-accent' : (saveDisabled ? 'text-muted-foreground' : '')}`} />
+          {saveButtonText}
         </Button>
       </div>
-      {/* The RecipeDetailsDisplay will use recipe.imageUrl, which could be the original or compressed version if re-saved */}
       <RecipeDetailsDisplay recipe={recipe} />
     </div>
   );
 }
-
