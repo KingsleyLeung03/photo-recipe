@@ -1,5 +1,8 @@
 
 # PhotoRecipe - AI Powered Recipe Generator
+**Author:** Kingsley Leung (Zihong Liang)  
+
+![PhotoRecipe Open Graph Image](/src/og-image.png)  
 
 PhotoRecipe is a Next.js application that uses AI to identify ingredients from a photo and suggests recipes. Users can upload images of their available ingredients, specify allergies, and receive AI-generated recipe ideas complete with descriptions, ingredient lists, instructions, nutritional information, and even AI-generated images for the dishes.
 

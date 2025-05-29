@@ -10,6 +10,20 @@ export const metadata: Metadata = {
   icons: {
     icon: '/favicon.ico', // Assuming a favicon might be added later
   },
+  openGraph: {
+    title: 'PhotoRecipe - AI Powered Recipe Generator',
+    description: 'Generate recipes from photos of your ingredients!',
+    siteName: 'PhotoRecipe - AI Powered Recipe Generator',
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PhotoRecipe - AI Powered Recipe Generator',
+    description: 'Generate recipes from photos of your ingredients!',
+    creator: '@KingsleyLeung03',
+    creatorId: '723487452988465152',
+  },
 };
 
 export default function RootLayout({
