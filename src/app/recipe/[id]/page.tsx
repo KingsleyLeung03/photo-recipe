@@ -8,7 +8,8 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { RecipeDetailsDisplay } from '@/components/RecipeDetailsDisplay';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, ArrowLeft, Heart, Loader2 } from 'lucide-react';
-import Link from 'next/link';
+// Link import will be removed if no longer used, but Button might use it implicitly if `asChild` was used with a Link elsewhere.
+// For this specific change, explicit Link component around this button is removed.
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { compressDataUri } from '@/utils/image-utils'; // Import compression utility
@@ -81,13 +82,18 @@ export default function RecipeDetailPage() {
       setSavedRecipes(prev => {
         const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave]; // Avoid duplicates
         if (recipesWithNew.length > MAX_SAVED_RECIPES) {
+          toast({
+            title: "Recipe Limit Reached",
+            description: `Removed oldest recipe to save "${recipeToSave.name}". Max ${MAX_SAVED_RECIPES} recipes.`,
+            variant: "default"
+          });
           return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
         }
+        toast({ 
+          title: "Recipe Saved!", 
+          description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
+        });
         return recipesWithNew;
-      });
-      toast({ 
-        title: "Recipe Saved!", 
-        description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
       });
     }
   };
@@ -127,10 +133,8 @@ export default function RecipeDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <Button variant="outline" asChild size="sm">
-          <Link href="/" className="flex items-center gap-1">
-            <ArrowLeft className="h-4 w-4" /> Back to Recipes
-          </Link>
+        <Button variant="outline" size="sm" onClick={() => router.back()} className="flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
         </Button>
         <Button variant={isSaved ? "secondary" : "default"} size="sm" onClick={toggleSaveRecipe} className="flex items-center gap-1 w-full sm:w-auto">
           <Heart className={`h-5 w-5 ${isSaved ? 'fill-accent text-accent' : ''}`} />
@@ -142,3 +146,4 @@ export default function RecipeDetailPage() {
     </div>
   );
 }
+
