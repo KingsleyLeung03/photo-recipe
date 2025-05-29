@@ -9,10 +9,14 @@ import type { RecipeGenerationResult } from '@/app/actions';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AlertTriangle, Info, ChefHat, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { compressDataUri } from '@/utils/image-utils'; // Import compression utility
+import { useToast } from '@/hooks/use-toast'; // Import useToast
+
 
 // Define initial empty arrays outside the component for stable references
 const EMPTY_RECIPES_ARRAY: AIAssistedRecipe[] = [];
+const MAX_SAVED_RECIPES = 3;
 
 export default function HomePage() {
   const [generatedRecipes, setGeneratedRecipes] = useState<AIAssistedRecipe[]>([]);
@@ -22,47 +26,82 @@ export default function HomePage() {
   const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
   const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY);
   const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
+  const { toast } = useToast();
 
 
   const handleRecipeGenerationResult = useCallback((result: RecipeGenerationResult | null, loading: boolean) => {
     setIsLoading(loading);
-    if (!loading) { // Only update state if not loading to prevent premature UI changes
+    if (!loading) { 
       setHasAttemptedGeneration(true);
       if (result) {
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
-          // setSessionRecipes(result.recipes); // This is now handled by the useEffect below
           setIdentifiedIngredients(result.identifiedIngredients);
           setError(null);
         } else if (result.error) {
           setError(result.error);
           setGeneratedRecipes([]);
-          // Don't clear sessionRecipes on error, user might want to see previous successful results
           setIdentifiedIngredients(result.identifiedIngredients);
         }
       }
     }
-  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); // Added all dependencies
+  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); 
 
-  const toggleSaveRecipe = (recipeId: string) => {
-    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || sessionRecipes.find(r => r.id === recipeId);
-    if (!recipeToToggle) return;
+  const toggleSaveRecipe = async (recipeId: string) => { // Make async
+    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || 
+                           sessionRecipes.find(r => r.id === recipeId) ||
+                           savedRecipes.find(r => r.id === recipeId); // Check savedRecipes too if toggling from a saved list context
+
+    if (!recipeToToggle) {
+      console.warn("Recipe not found to toggle save state:", recipeId);
+      return;
+    }
 
     const isAlreadySaved = savedRecipes.some(r => r.id === recipeId);
+
     if (isAlreadySaved) {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+      toast({ title: "Recipe Unsaved", description: `"${recipeToToggle.name}" removed from your saved recipes.` });
     } else {
-      setSavedRecipes(prev => [...prev, recipeToToggle]);
+      let recipeToSave: AIAssistedRecipe = { ...recipeToToggle };
+      if (recipeToToggle.imageUrl) {
+        try {
+          console.log(`Compressing image for: ${recipeToToggle.name}`);
+          const compressedUrl = await compressDataUri(recipeToToggle.imageUrl);
+          recipeToSave.imageUrl = compressedUrl;
+        } catch (e) {
+          console.error("Failed to compress image for saving on main page:", e);
+          // recipeToSave.imageUrl will retain the original or fallback from compressDataUri
+        }
+      } else {
+        // Ensure imageUrl is undefined if it wasn't present, to avoid saving "undefined" string
+        delete recipeToSave.imageUrl;
+      }
+
+      setSavedRecipes(prev => {
+        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave]; // Avoid duplicates
+        if (recipesWithNew.length > MAX_SAVED_RECIPES) {
+          return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
+        }
+        return recipesWithNew;
+      });
+      toast({ 
+        title: "Recipe Saved!", 
+        description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
+      });
     }
   };
   
-  // Determine which recipes to show: current generation or last successful session.
   const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error ? sessionRecipes : []);
 
-  // Persist generatedRecipes to sessionRecipes when generatedRecipes changes and is not empty
   useEffect(() => {
     if (generatedRecipes.length > 0) {
-      setSessionRecipes(generatedRecipes);
+      // Session recipes will not store image URLs to keep session storage light
+      const recipesForSession = generatedRecipes.map(recipe => {
+        const { imageUrl, ...rest } = recipe; 
+        return rest;
+      });
+      setSessionRecipes(recipesForSession);
     }
   }, [generatedRecipes, setSessionRecipes]);
 
@@ -121,7 +160,7 @@ export default function HomePage() {
                 key={recipe.id}
                 recipe={recipe}
                 isSaved={savedRecipes.some(r => r.id === recipe.id)}
-                onToggleSave={toggleSaveRecipe}
+                onToggleSave={() => toggleSaveRecipe(recipe.id)} // Pass recipe.id
               />
             ))}
           </div>

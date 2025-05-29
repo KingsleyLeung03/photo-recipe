@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -10,6 +11,10 @@ import { AlertTriangle, ArrowLeft, Heart, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { compressDataUri } from '@/utils/image-utils'; // Import compression utility
+
+const EMPTY_RECIPES_ARRAY: AIAssistedRecipe[] = [];
+const MAX_SAVED_RECIPES = 3;
 
 export default function RecipeDetailPage() {
   const params = useParams();
@@ -20,40 +25,70 @@ export default function RecipeDetailPage() {
   const [recipe, setRecipe] = useState<AIAssistedRecipe | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', []);
-  const [sessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', []); // Read-only for this page
+  const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
+  const [sessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY); 
 
   useEffect(() => {
     if (recipeId) {
       setIsLoading(true);
-      // First, check session recipes (for currently generated ones)
-      const sessionRecipe = sessionRecipes.find(r => r.id === recipeId);
-      if (sessionRecipe) {
-        setRecipe(sessionRecipe);
-        setIsLoading(false);
-        return;
+      // Try to find in currently generated/session recipes first (these may or may not have imageUrl)
+      let foundRecipe = sessionRecipes.find(r => r.id === recipeId);
+      
+      // If not in session, check saved recipes (these will have compressed or no imageUrl)
+      if (!foundRecipe) {
+        foundRecipe = savedRecipes.find(r => r.id === recipeId);
       }
+      
+      // If still not found but generatedRecipes (from HomePage, not directly accessible here) might have it,
+      // this scenario implies a direct navigation to a new recipe.
+      // For simplicity, we primarily rely on session and saved.
+      // A more robust solution might involve a global state or fetching if ID not in local sources.
 
-      // Then, check saved recipes
-      const savedRecipe = savedRecipes.find(r => r.id === recipeId);
-      if (savedRecipe) {
-        setRecipe(savedRecipe);
+      if (foundRecipe) {
+        // If the recipe details page is loaded directly, and it was from a fresh generation,
+        // it might have a full-size image. The `recipe` state here could hold this.
+        // When saved, it will be compressed.
+        setRecipe(foundRecipe);
       }
       setIsLoading(false);
     } else {
-        setIsLoading(false); // No ID, so not loading
+        setIsLoading(false); 
     }
   }, [recipeId, savedRecipes, sessionRecipes]);
 
-  const toggleSaveRecipe = () => {
+  const toggleSaveRecipe = async () => { // Make async
     if (!recipe) return;
+
     const isAlreadySaved = savedRecipes.some(r => r.id === recipe.id);
     if (isAlreadySaved) {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipe.id));
       toast({ title: "Recipe Unsaved", description: `"${recipe.name}" removed from your saved recipes.` });
     } else {
-      setSavedRecipes(prev => [...prev, recipe]);
-      toast({ title: "Recipe Saved!", description: `"${recipe.name}" added to your saved recipes.` });
+      let recipeToSave: AIAssistedRecipe = { ...recipe };
+      if (recipe.imageUrl) {
+        try {
+          console.log(`Compressing image for (details page): ${recipe.name}`);
+          const compressedUrl = await compressDataUri(recipe.imageUrl);
+          recipeToSave.imageUrl = compressedUrl;
+        } catch (e) {
+          console.error("Failed to compress image for saving on details page:", e);
+          // recipeToSave.imageUrl will retain the original or fallback
+        }
+      } else {
+        delete recipeToSave.imageUrl;
+      }
+
+      setSavedRecipes(prev => {
+        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave]; // Avoid duplicates
+        if (recipesWithNew.length > MAX_SAVED_RECIPES) {
+          return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
+        }
+        return recipesWithNew;
+      });
+      toast({ 
+        title: "Recipe Saved!", 
+        description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
+      });
     }
   };
 
@@ -102,6 +137,7 @@ export default function RecipeDetailPage() {
           {isSaved ? 'Unsave Recipe' : 'Save Recipe'}
         </Button>
       </div>
+      {/* The RecipeDetailsDisplay will use recipe.imageUrl, which could be the original or compressed version if re-saved */}
       <RecipeDetailsDisplay recipe={recipe} />
     </div>
   );
