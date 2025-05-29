@@ -25,30 +25,41 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
   const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY);
-  const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false); // New state
+  const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
   const { toast } = useToast();
 
 
   const handleRecipeGenerationResult = useCallback((result: RecipeGenerationResult | null, loading: boolean) => {
-    setIsLoading(loading);
-    if (!loading) { 
-      setHasAttemptedGeneration(true); // Set true once an attempt is made
-      if (result) {
+    setIsLoading(loading); // Update loading state based on form's pending status
+
+    if (!loading) { // When an action is NOT pending (i.e., it has completed or it's the initial state)
+      // An "attempt" has been made if the action state (result) is no longer the initial null value.
+      // This distinguishes the initial call from a completed action.
+      // The `initialState` for useActionState in the PhotoRecipeForm is `null`.
+      if (result !== null) {
+        setHasAttemptedGeneration(true);
+      }
+
+      if (result) { // If there's an actual result object (not null)
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
           setIdentifiedIngredients(result.identifiedIngredients);
           setError(null);
         } else if (result.error) {
           setError(result.error);
-          setGeneratedRecipes([]);
-          setIdentifiedIngredients(result.identifiedIngredients);
+          setGeneratedRecipes([]); // Clear recipes on error
+          setIdentifiedIngredients(result.identifiedIngredients); // Still show identified ingredients if available
         }
       }
+      // If result is null AND !loading:
+      // This is the initial state call from PhotoRecipeForm when it mounts.
+      // We do nothing to `generatedRecipes` or `error` here. `hasAttemptedGeneration` correctly remains false.
     }
-  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); 
+    // If loading is true, only setIsLoading(true) runs, and the rest of the logic in this block is skipped.
+  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]);
 
   const toggleSaveRecipe = async (recipeId: string) => {
-    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || 
+    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) ||
                            sessionRecipes.find(r => r.id === recipeId) ||
                            savedRecipes.find(r => r.id === recipeId);
 
@@ -79,30 +90,35 @@ export default function HomePage() {
       setSavedRecipes(prev => {
         const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave];
         if (recipesWithNew.length > MAX_SAVED_RECIPES) {
+          toast({
+            title: "Recipe Limit Reached",
+            description: `Removed oldest recipe to save "${recipeToSave.name}". Max ${MAX_SAVED_RECIPES} recipes.`,
+            variant: "default"
+          });
           return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
         }
+        toast({
+          title: "Recipe Saved!",
+          description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.`
+        });
         return recipesWithNew;
-      });
-      toast({ 
-        title: "Recipe Saved!", 
-        description: `"${recipeToSave.name}" added. You can save up to ${MAX_SAVED_RECIPES} recipes.` 
       });
     }
   };
-  
+
   const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error && hasAttemptedGeneration ? sessionRecipes : []);
 
   useEffect(() => {
     if (generatedRecipes.length > 0) {
       const recipesForSession = generatedRecipes.map(recipe => {
-        const { imageUrl, ...rest } = recipe; 
+        const { imageUrl, ...rest } = recipe;
         return rest;
       });
       setSessionRecipes(recipesForSession);
     }
   }, [generatedRecipes, setSessionRecipes]);
 
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <section className="mb-12">
@@ -163,7 +179,7 @@ export default function HomePage() {
           </div>
         </section>
       )}
-      
+
       {!isLoading && hasAttemptedGeneration && !error && recipesToShow.length === 0 && (
          <section className="text-center py-10">
           <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
