@@ -6,6 +6,10 @@
 
 PhotoRecipe is a Next.js application that uses AI to identify ingredients from a photo and suggests recipes. Users can upload images of their available ingredients, specify allergies, and receive AI-generated recipe ideas complete with descriptions, ingredient lists, instructions, nutritional information, and even AI-generated images for the dishes.
 
+## Live Demo
+
+You can try PhotoRecipe live at: [photo-recipe-rho.vercel.app](https://photo-recipe-rho.vercel.app/)
+
 ## Key Features
 
 *   **Ingredient Photo Upload**: Easily upload a photo of your ingredients.
