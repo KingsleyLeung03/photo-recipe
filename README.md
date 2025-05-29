@@ -2,14 +2,14 @@
 # PhotoRecipe - AI Powered Recipe Generator
 **Author:** Kingsley Leung (Zihong Liang)  
 
-![PhotoRecipe Open Graph Image](/src/og-image.png)  
+![PhotoRecipe Open Graph Image](src/app/opengraph-image.png)  
 
 PhotoRecipe is a Next.js application that uses AI to identify ingredients from a photo and suggests recipes. Users can upload images of their available ingredients, specify allergies, and receive AI-generated recipe ideas complete with descriptions, ingredient lists, instructions, nutritional information, and even AI-generated images for the dishes.
 
 ## Key Features
 
 *   **Ingredient Photo Upload**: Easily upload a photo of your ingredients.
-*   **AI-Driven Ingredient Identification**: Leverages AI to analyze the uploaded photo and identify food items.
+*   **AI-Driven Ingredient Identification**: Leverages AI to analyse the uploaded photo and identify food items.
 *   **AI-Powered Recipe Suggestions**: Generates multiple recipe ideas based on identified ingredients and optional user-specified allergies. Each suggestion includes:
     *   Recipe Name
     *   Description
@@ -18,11 +18,11 @@ PhotoRecipe is a Next.js application that uses AI to identify ingredients from a
     *   Approximate Nutritional Information
 *   **AI-Generated Recipe Images**: Creates unique images for each suggested recipe.
 *   **Save & View Recipes**:
-    *   Save up to 3 favorite recipes to local storage.
+    *   Save up to 3 favourite recipes to local storage.
     *   View detailed recipe information on dedicated pages.
     *   Manage saved recipes from a "Saved Recipes" page.
-*   **Responsive Design**: User-friendly interface optimized for both desktop and mobile devices.
-*   **Client-Side Image Compression**: Compresses uploaded ingredient photos and generated recipe images (before saving to local storage) to optimize performance and storage.
+*   **Responsive Design**: User-friendly interface optimised for both desktop and mobile devices.
+*   **Client-Side Image Compression**: Compresses uploaded ingredient photos and generated recipe images (before saving to local storage) to optimise performance and storage.
 *   **User Feedback**: Toast notifications for actions like saving recipes, reaching save limits, and errors.
 
 ## Tech Stack
@@ -111,7 +111,7 @@ This application leverages Genkit to orchestrate calls to Google's Gemini AI mod
 
 *   **Ingredient Identification** (`src/ai/flows/identify-ingredients.ts`):
     *   Takes a photo of ingredients (as a data URI).
-    *   Uses a Gemini model to analyze the image and return a list of identified food items.
+    *   Uses a Gemini model to analyse the image and return a list of identified food items.
 *   **Recipe Suggestion** (`src/ai/flows/suggest-recipes.ts`):
     *   Takes the list of identified ingredients and any user-specified allergies.
     *   Uses a Gemini model to generate a list of recipe ideas. For each recipe, it provides:
