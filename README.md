@@ -59,11 +59,11 @@ Follow these instructions to get a copy of the project up and running on your lo
     This project uses Genkit with the Google AI plugin, which requires an API key.
     *   Create a `.env.local` file in the root of your project:
         ```bash
-        touch .env.local
+        touch .env
         ```
-    *   Add your Google AI API key to the `.env.local` file:
+    *   Add your Google AI API key to the `.env` file:
         ```
-        GOOGLE_API_KEY=your_google_api_key_here
+        GEMINI_API_KEY=your_google_api_key_here
         ```
         You can obtain an API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
