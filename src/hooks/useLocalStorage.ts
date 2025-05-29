@@ -34,26 +34,34 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]); // readValueFromLocalStorage is stable due to its own deps (key, initialValue)
 
-  const setValue: SetValue<T> = useCallback(value => {
-    if (typeof window === "undefined") {
-      console.warn(
-        `Tried setting localStorage key “${key}” even though environment is not a client`
-      );
-      return;
-    }
-    try {
-      // Allow value to be a function so we have the same API as useState
-      const newValue = value instanceof Function ? value(storedValue) : value;
-      // Save to local storage
-      window.localStorage.setItem(key, JSON.stringify(newValue));
-      // Save state
-      setStoredValue(newValue);
-      // The 'storage' event will be automatically dispatched by the browser.
-      // The listener below will pick it up, including in the current tab.
-    } catch (error) {
-      console.warn(`Error setting localStorage key "${key}":`, error);
-    }
-  }, [key, storedValue]); // storedValue is needed for functional updates
+  const setValue: SetValue<T> = useCallback(
+    (valueOrFn) => {
+      if (typeof window === 'undefined') {
+        console.warn(
+          `Tried setting localStorage key “${key}” even though environment is not a client`
+        );
+        return;
+      }
+      try {
+        // Use the functional update form of setStoredValue
+        // This ensures that we're always working with the latest state
+        // and allows `setValue` to not depend on `storedValue` itself.
+        setStoredValue((prevStoredValue) => {
+          const newValue =
+            valueOrFn instanceof Function
+              ? valueOrFn(prevStoredValue)
+              : valueOrFn;
+          window.localStorage.setItem(key, JSON.stringify(newValue));
+          return newValue;
+        });
+        // The 'storage' event will be automatically dispatched by the browser.
+        // The listener below will pick it up, including in the current tab.
+      } catch (error) {
+        console.warn(`Error setting localStorage key "${key}":`, error);
+      }
+    },
+    [key] // `setStoredValue` from `useState` is stable. `key` is the only other external dependency.
+  );
 
   // Effect to listen for changes from other tabs or direct localStorage modifications
   useEffect(() => {
@@ -69,12 +77,15 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T
           // Only update if the new value is meaningfully different from the current state.
           // Compare stringified versions to handle objects/arrays correctly,
           // as JSON.parse creates new references.
-          const currentStoredValueString = JSON.stringify(storedValue);
-          const newValueFromStorageString = JSON.stringify(newValueFromStorage);
-
-          if (currentStoredValueString !== newValueFromStorageString) {
-            setStoredValue(newValueFromStorage);
-          }
+          // This check is critical to prevent loops if the event fires for same-tab changes.
+          setStoredValue(currentVal => {
+            const currentStoredValueString = JSON.stringify(currentVal);
+            const newValueFromStorageString = JSON.stringify(newValueFromStorage);
+            if (currentStoredValueString !== newValueFromStorageString) {
+              return newValueFromStorage;
+            }
+            return currentVal;
+          });
         } catch (error) {
           console.warn(`Error processing storage event for key "${key}":`, error);
           // Fallback to initial value on error to prevent inconsistent state
@@ -87,7 +98,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, SetValue<T
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [key, initialValue, storedValue]); // storedValue is a dependency for comparison
+  }, [key, initialValue]); // `storedValue` was removed, check made inside setStoredValue functional update
 
   return [storedValue, setValue];
 }
