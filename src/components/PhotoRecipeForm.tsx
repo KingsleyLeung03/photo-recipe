@@ -3,7 +3,7 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useState, useRef, useEffect, useActionState, startTransition } from 'react';
-import Image from 'next/image';
+import Image from "next/legacy/image";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Utensils, ListChecks, ClipboardList, Info, ImageOff } from 'lucide-react';
-import Image from 'next/image';
+import Image from "next/legacy/image";
 
 interface RecipeDetailsDisplayProps {
   recipe: AIAssistedRecipe;
