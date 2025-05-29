@@ -9,10 +9,14 @@ import type { RecipeGenerationResult } from '@/app/actions';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AlertTriangle, Info, ChefHat, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { compressDataUri } from '@/utils/image-utils';
+import { useToast } from '@/hooks/use-toast';
+
 
 // Define initial empty arrays outside the component for stable references
 const EMPTY_RECIPES_ARRAY: AIAssistedRecipe[] = [];
+const MAX_SAVED_RECIPES = 3;
 
 export default function HomePage() {
   const [generatedRecipes, setGeneratedRecipes] = useState<AIAssistedRecipe[]>([]);
@@ -22,51 +26,88 @@ export default function HomePage() {
   const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
   const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY);
   const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
+  const { toast } = useToast();
 
 
   const handleRecipeGenerationResult = useCallback((result: RecipeGenerationResult | null, loading: boolean) => {
-    setIsLoading(loading);
-    if (!loading) { // Only update state if not loading to prevent premature UI changes
-      setHasAttemptedGeneration(true);
-      if (result) {
+    setIsLoading(loading); 
+
+    if (!loading) { 
+      if (result !== null) {
+        setHasAttemptedGeneration(true);
+      }
+
+      if (result) { 
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
-          // setSessionRecipes(result.recipes); // This is now handled by the useEffect below
           setIdentifiedIngredients(result.identifiedIngredients);
           setError(null);
         } else if (result.error) {
           setError(result.error);
-          setGeneratedRecipes([]);
-          // Don't clear sessionRecipes on error, user might want to see previous successful results
-          setIdentifiedIngredients(result.identifiedIngredients);
+          setGeneratedRecipes([]); 
+          setIdentifiedIngredients(result.identifiedIngredients); 
         }
       }
     }
-  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); // Added all dependencies
+  }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]);
 
-  const toggleSaveRecipe = (recipeId: string) => {
-    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || sessionRecipes.find(r => r.id === recipeId);
-    if (!recipeToToggle) return;
+  const toggleSaveRecipe = async (recipeId: string) => {
+    const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) ||
+                           sessionRecipes.find(r => r.id === recipeId) ||
+                           savedRecipes.find(r => r.id === recipeId);
+
+    if (!recipeToToggle) {
+      console.warn("Recipe not found to toggle save state:", recipeId);
+      return;
+    }
 
     const isAlreadySaved = savedRecipes.some(r => r.id === recipeId);
+
     if (isAlreadySaved) {
       setSavedRecipes(prev => prev.filter(r => r.id !== recipeId));
+      toast({ title: "Recipe Unsaved", description: `"${recipeToToggle.name}" removed from your saved recipes.` });
     } else {
-      setSavedRecipes(prev => [...prev, recipeToToggle]);
+      // Check if trying to save a new recipe and limit is reached
+      if (savedRecipes.length >= MAX_SAVED_RECIPES) {
+        toast({
+          title: "Save Limit Reached",
+          description: `You can save up to ${MAX_SAVED_RECIPES} recipes. Please unsave one to add a new recipe.`,
+          variant: "default" 
+        });
+        return; // Prevent saving
+      }
+
+      const recipeToSave: AIAssistedRecipe = { ...recipeToToggle };
+      if (recipeToToggle.imageUrl) {
+        try {
+          console.log(`Compressing image for: ${recipeToToggle.name}`);
+          const compressedUrl = await compressDataUri(recipeToToggle.imageUrl);
+          recipeToSave.imageUrl = compressedUrl;
+        } catch (e) {
+          console.error("Failed to compress image for saving on main page:", e);
+        }
+      } else {
+        delete recipeToSave.imageUrl;
+      }
+      
+      const updatedSavedRecipes = [...savedRecipes, recipeToSave];
+      setSavedRecipes(updatedSavedRecipes);
+      toast({
+        title: "Recipe Saved!",
+        description: `"${recipeToSave.name}" added. (${updatedSavedRecipes.length}/${MAX_SAVED_RECIPES} recipes saved)`
+      });
     }
   };
-  
-  // Determine which recipes to show: current generation or last successful session.
-  const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error ? sessionRecipes : []);
 
-  // Persist generatedRecipes to sessionRecipes when generatedRecipes changes and is not empty
+  const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error && hasAttemptedGeneration ? sessionRecipes : []);
+
   useEffect(() => {
     if (generatedRecipes.length > 0) {
-      setSessionRecipes(generatedRecipes);
+      setSessionRecipes(generatedRecipes.map(r => ({...r, imageUrl: r.imageUrl}))); // Preserve imageUrl
     }
   }, [generatedRecipes, setSessionRecipes]);
 
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <section className="mb-12">
@@ -121,25 +162,27 @@ export default function HomePage() {
                 key={recipe.id}
                 recipe={recipe}
                 isSaved={savedRecipes.some(r => r.id === recipe.id)}
-                onToggleSave={toggleSaveRecipe}
+                onToggleSave={() => toggleSaveRecipe(recipe.id)}
+                // Pass saved count and max to card if we want to disable button there directly
+                // For now, the logic in toggleSaveRecipe handles prevention.
               />
             ))}
           </div>
         </section>
       )}
-      
+
       {!isLoading && hasAttemptedGeneration && !error && recipesToShow.length === 0 && (
          <section className="text-center py-10">
           <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-muted-foreground mb-2">No Recipes Found</h2>
           <p className="text-lg text-muted-foreground">
-            We couldn't find any recipes for the ingredients {identifiedIngredients && identifiedIngredients.length > 0 ? `(${identifiedIngredients.join(', ')})` : ''}.
+            We couldn&apos;t find any recipes for the ingredients {identifiedIngredients && identifiedIngredients.length > 0 ? `(${identifiedIngredients.join(', ')})` : ''}.
           </p>
           <p className="text-muted-foreground">Try a different photo or adjust your allergies.</p>
         </section>
       )}
 
-      {!isLoading && !hasAttemptedGeneration && (
+      {!isLoading && !hasAttemptedGeneration && !error && (
          <section className="text-center py-10">
           <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-muted-foreground mb-2">Ready to Cook?</h2>

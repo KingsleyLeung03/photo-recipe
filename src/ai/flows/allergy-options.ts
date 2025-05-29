@@ -48,7 +48,7 @@ const analyzeIngredientsTool = ai.defineTool({
       ),
   }),
   outputSchema: z.array(z.string()).describe('A list of identified ingredients.'),
-  async handler(input) {
+  async handler() {
     // Placeholder implementation - replace with actual image analysis logic
     // This example simply returns a hardcoded list of ingredients
     console.log("Calling analyzeIngredients tool.")
