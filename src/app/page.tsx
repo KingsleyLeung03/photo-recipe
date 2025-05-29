@@ -10,8 +10,8 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { AlertTriangle, Info, ChefHat, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { compressDataUri } from '@/utils/image-utils'; // Import compression utility
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { compressDataUri } from '@/utils/image-utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Define initial empty arrays outside the component for stable references
@@ -25,14 +25,14 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [savedRecipes, setSavedRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_savedRecipes', EMPTY_RECIPES_ARRAY);
   const [sessionRecipes, setSessionRecipes] = useLocalStorage<AIAssistedRecipe[]>('photoRecipe_sessionRecipes', EMPTY_RECIPES_ARRAY);
-  const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false);
+  const [hasAttemptedGeneration, setHasAttemptedGeneration] = useState(false); // New state
   const { toast } = useToast();
 
 
   const handleRecipeGenerationResult = useCallback((result: RecipeGenerationResult | null, loading: boolean) => {
     setIsLoading(loading);
     if (!loading) { 
-      setHasAttemptedGeneration(true);
+      setHasAttemptedGeneration(true); // Set true once an attempt is made
       if (result) {
         if (result.success && result.recipes) {
           setGeneratedRecipes(result.recipes);
@@ -47,10 +47,10 @@ export default function HomePage() {
     }
   }, [setIsLoading, setHasAttemptedGeneration, setGeneratedRecipes, setIdentifiedIngredients, setError]); 
 
-  const toggleSaveRecipe = async (recipeId: string) => { // Make async
+  const toggleSaveRecipe = async (recipeId: string) => {
     const recipeToToggle = generatedRecipes.find(r => r.id === recipeId) || 
                            sessionRecipes.find(r => r.id === recipeId) ||
-                           savedRecipes.find(r => r.id === recipeId); // Check savedRecipes too if toggling from a saved list context
+                           savedRecipes.find(r => r.id === recipeId);
 
     if (!recipeToToggle) {
       console.warn("Recipe not found to toggle save state:", recipeId);
@@ -71,15 +71,13 @@ export default function HomePage() {
           recipeToSave.imageUrl = compressedUrl;
         } catch (e) {
           console.error("Failed to compress image for saving on main page:", e);
-          // recipeToSave.imageUrl will retain the original or fallback from compressDataUri
         }
       } else {
-        // Ensure imageUrl is undefined if it wasn't present, to avoid saving "undefined" string
         delete recipeToSave.imageUrl;
       }
 
       setSavedRecipes(prev => {
-        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave]; // Avoid duplicates
+        const recipesWithNew = [...prev.filter(r => r.id !== recipeToSave.id), recipeToSave];
         if (recipesWithNew.length > MAX_SAVED_RECIPES) {
           return recipesWithNew.slice(recipesWithNew.length - MAX_SAVED_RECIPES);
         }
@@ -92,11 +90,10 @@ export default function HomePage() {
     }
   };
   
-  const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error ? sessionRecipes : []);
+  const recipesToShow = generatedRecipes.length > 0 ? generatedRecipes : (sessionRecipes.length > 0 && !isLoading && !error && hasAttemptedGeneration ? sessionRecipes : []);
 
   useEffect(() => {
     if (generatedRecipes.length > 0) {
-      // Session recipes will not store image URLs to keep session storage light
       const recipesForSession = generatedRecipes.map(recipe => {
         const { imageUrl, ...rest } = recipe; 
         return rest;
@@ -160,7 +157,7 @@ export default function HomePage() {
                 key={recipe.id}
                 recipe={recipe}
                 isSaved={savedRecipes.some(r => r.id === recipe.id)}
-                onToggleSave={() => toggleSaveRecipe(recipe.id)} // Pass recipe.id
+                onToggleSave={() => toggleSaveRecipe(recipe.id)}
               />
             ))}
           </div>
@@ -178,7 +175,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {!isLoading && !hasAttemptedGeneration && (
+      {!isLoading && !hasAttemptedGeneration && !error && (
          <section className="text-center py-10">
           <Info className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-muted-foreground mb-2">Ready to Cook?</h2>
